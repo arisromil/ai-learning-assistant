@@ -11,15 +11,29 @@ async function generateResponse(prompt) {
     try {
         const { data } = await axios.post(
             API_URL,
-            { contents: [{ role: "user", parts: [{ text: prompt }] }] },
+            {
+                contents: [
+                    {
+                        role: "user",
+                        parts: [{
+                            text: "You are an AI assistant that helps users " +
+                                "learn programming and prepare for technical interviews. " +
+                                "Provide clear explanations with examples when needed."
+                        }]
+                    },
+                    { role: "user", parts: [{ text: prompt }] },
+                ],
+            },
             { headers: { "Content-Type": "application/json" } }
         );
-        return data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
+        return (
+            data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+            "No response received from AI."
+        );
     } catch (error) {
-        return `Error: ${error.response?.data || error.message}`;
+        console.error("API Request Failed:", error.response?.data || error.message);
+        return {
+            error: "Failed to fetch AI response",
+            details: error.response?.data || error.message,
+        };
     }
-}
-
-const prompt = "In one sentence, explain Node.";
-const response = await generateResponse(prompt);
-console.log("AI Response:", response);

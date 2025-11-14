@@ -55,3 +55,21 @@ async function generateResponse(prompt) {
     
     }
 }
+
+
+fastify.post("/query", async (request, reply) => {
+    try {
+        const { prompt } = request.body;
+        if (!prompt) {
+            return reply.status(400).send({ error: "Prompt is required" });
+        }
+        const response = await generateResponse(prompt);
+        reply.send({ response });
+    } catch (error) {
+        console.error("Gemini API Error:", error);
+        reply.status(500).send({
+            error: "Error communicating with Gemini API",
+            details: error.message,
+        });
+    }
+})

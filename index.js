@@ -99,3 +99,23 @@ fastify.post("/register", async (request, reply) => {
         reply.status(500).send({ error: "Failed to register user" });
     }
 });
+
+
+fastify.post("/login", async (request, reply) => {
+    const { email, password } = request.body;
+    if (!email || !password) {
+        return reply.status(400).send({ error: "Email and password required" });
+    }
+    try {
+        const db = await dbPromise;
+        const user = await db.get("SELECT * FROM users WHERE userId = ?", [email]);
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return reply.status(401).send({ error: "Invalid email or password" });
+        }
+        const token = jwt.sign({ userId: email }, JWT_SECRET, { expiresIn: "7d" });
+        reply.send({ token });
+    } catch (error) {
+        console.error("Login error:", error);
+        reply.status(500).send({ error: "Failed to authenticate user" });
+    }
+});

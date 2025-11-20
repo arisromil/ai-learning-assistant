@@ -119,3 +119,18 @@ fastify.post("/login", async (request, reply) => {
         reply.status(500).send({ error: "Failed to authenticate user" });
     }
 });
+
+
+const verifyJWT = async (request, reply) => {
+    try {
+        const authHeader = request.headers.authorization;
+        if (!authHeader) {
+            return reply.status(401).send({ error: "Missing authentication token" });
+        }
+        const token = authHeader.split(" ")[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        request.user = decoded;
+    } catch (error) {
+        return reply.status(401).send({ error: "Invalid or expired token" });
+    }
+};

@@ -134,3 +134,30 @@ const verifyJWT = async (request, reply) => {
         return reply.status(401).send({ error: "Invalid or expired token" });
     }
 };
+
+
+fastify.post("/query", { preHandler: verifyJWT }, async (request, reply) => {
+    try {
+        const { prompt } = request.body;
+        const userId = request.user.userId;
+        const db = await dbPromise;
+        const row = await db.get(
+            "SELECT learning_profile FROM users WHERE userId = ?",
+            [userId]
+        );
+        const learningProfile =
+            row?.learning_profile || "This user has no recorded learning profile yet.";
+        const { answer, updatedProfileSummary } = await generateResponseWithSummary(
+            prompt,
+            learningProfile
+        );
+        await db.run("UPDATE users SET learning_profile = ? WHERE userId = ?", [
+            updatedProfileSummary,
+            userId,
+        ]);
+        reply.send({ answer, updatedProfileSummary });
+    } catch (error) {
+        console.error("Query error:", error);
+        reply.status(500).send("Error processing query");
+    }
+});

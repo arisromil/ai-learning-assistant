@@ -141,16 +141,20 @@ fastify.post("/query", { preHandler: verifyJWT }, async (request, reply) => {
         const { prompt } = request.body;
         const userId = request.user.userId;
         const db = await dbPromise;
+
         const row = await db.get(
             "SELECT learning_profile FROM users WHERE userId = ?",
             [userId]
         );
+
         const learningProfile =
             row?.learning_profile || "This user has no recorded learning profile yet.";
+
         const { answer, updatedProfileSummary } = await generateResponseWithSummary(
             prompt,
             learningProfile
         );
+
         await db.run("UPDATE users SET learning_profile = ? WHERE userId = ?", [
             updatedProfileSummary,
             userId,
@@ -161,3 +165,56 @@ fastify.post("/query", { preHandler: verifyJWT }, async (request, reply) => {
         reply.status(500).send("Error processing query");
     }
 });
+
+const generateResponseWithSummary = async (prompt, learningProfile) => {
+    try {
+        const requestData = {
+            contents: [
+                {
+                    role: "user",
+                    parts: [
+                        {
+                            text: `You are an AI assistant helping users learn programming.
+                                    The user has the following learning profile: "${learningProfile}".
+                                    Based on this, answer their query and update their profile with a
+                                    one-sentence summary of strengths and weaknesses.
+                                    Respond in **valid JSON format**:
+                                        {
+                                            "response": "Your AI-generated response",
+                                        "updatedProfileSummary": "Updated profile summary."
+        }`,
+                        },
+                        { text: `User query: ${prompt}` },
+                    ],
+                },
+            ],
+        };
+        const response = await axios.post(API_URL, requestData, {
+            headers: { "Content-Type": "application/json" },
+        });
+
+        const rawText = response?.data?.candidates?.[0]?.content?.parts?.[0]?.text
+            || "{}";
+
+        const cleanedJson = rawText.replace(/```json|```/g, "").trim();
+
+        try {
+            const parsedResponse = JSON.parse(cleanedJson);
+            return {
+                answer: parsedResponse.response || "No valid response received.",
+                updatedProfileSummary: parsedResponse.updatedProfileSummary
+                    || learningProfile,
+            };
+        } catch {
+            console.error("Invalid JSON format from API:", cleanedJson);
+            return { error: "Invalid JSON response", details: cleanedJson };
+        }
+
+    } catch (error) {
+        console.error("API Error:", error.response?.data || error.message);
+        return {
+            error: "Failed to generate response", details: error.response?.data
+                || error.message
+        };
+    }
+};

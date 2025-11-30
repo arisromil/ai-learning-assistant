@@ -1,0 +1,3 @@
+- Node application to interact with Google’s Gemini API
+- AI-powered learning assistance for technical learning
+- Integrated user profile database to track learning progress
